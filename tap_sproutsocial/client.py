@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING, Any, Iterable
 
-from singer_sdk.authenticators import APIKeyAuthenticator
+from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator  # noqa: TCH002
 from singer_sdk.streams import RESTStream
@@ -19,10 +19,7 @@ if TYPE_CHECKING:
     import requests
     from singer_sdk.helpers.types import Context
 
-
-# TODO: Delete this is if not using json files for schema definition
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
-
 
 class SproutSocialStream(RESTStream):
     """SproutSocial stream class."""
@@ -33,38 +30,34 @@ class SproutSocialStream(RESTStream):
     # Update this value if necessary or override `get_new_paginator`.
     next_page_token_jsonpath = "$.next_page"  # noqa: S105
 
-    @property
-    def url_base(self) -> str:
-        """Return the API URL root, configurable via tap settings."""
-        # TODO: hardcode a value here, or retrieve it from self.config
-        return "https://api.mysample.com"
+    fields = None  # Post Analytics Stream will use this
 
     @property
-    def authenticator(self) -> APIKeyAuthenticator:
+    def url_base(self) -> str:
+        """Return the API URL root. Version is set to v1 as default.
+        """
+        version=self.config.get("version", "v1")
+        customer_id=self.config.get("customer_id", None)
+        return f"https://api.sproutsocial.com/{version}/{customer_id}"
+
+    @property
+    def authenticator(self) -> BearerTokenAuthenticator:
         """Return a new authenticator object.
 
         Returns:
             An authenticator instance.
         """
-        return APIKeyAuthenticator.create_for_stream(
+        return BearerTokenAuthenticator.create_for_stream(
             self,
-            key="x-api-key",
-            value=self.config.get("auth_token", ""),
-            location="header",
+            token=self.config.get("token_name", ""),
         )
 
     @property
     def http_headers(self) -> dict:
-        """Return the http headers needed.
-
-        Returns:
-            A dictionary of HTTP headers.
-        """
-        headers = {}
-        if "user_agent" in self.config:
-            headers["User-Agent"] = self.config.get("user_agent")
-        # If not using an authenticator, you may also provide inline auth headers:
-        # headers["Private-Token"] = self.config.get("auth_token")  # noqa: ERA001
+        """Return the http headers needed."""
+        headers = {
+            "Content-Type": "application/json",
+        }
         return headers
 
     def get_new_paginator(self) -> BaseAPIPaginator:
@@ -82,11 +75,21 @@ class SproutSocialStream(RESTStream):
         """
         return super().get_new_paginator()
 
+    def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
+        """Extract fields from properties and metrics from post_analytics.json."""
+        config_file = SCHEMAS_DIR / "post_analytics.json"
+        with config_file.open() as f:
+            config_data = json.load(f)
+    
+        # Extract fields from properties, excluding 'metrics'
+        fields = [key for key in config_data.get("properties", {}).keys() if key != "metrics"]
+        # Extract metrics from properties.metrics.properties
+        metrics = list(config_data.get("properties", {}).get("metrics", {}).get("properties", {}).keys())
+        return fields, metrics
+
     def get_url_params(
-        self,
-        context: Context | None,  # noqa: ARG002
-        next_page_token: Any | None,  # noqa: ANN401
-    ) -> dict[str, Any]:
+        self, context: Optional[dict], next_page_token: Optional[Any] = None
+    ) -> Dict[str, Any]:
         """Return a dictionary of values to be used in URL parameterization.
 
         Args:
@@ -96,12 +99,22 @@ class SproutSocialStream(RESTStream):
         Returns:
             A dictionary of URL query parameters.
         """
+        customer_profile_id = self.config.get("customer_profile_id", "")
         params: dict = {}
-        if next_page_token:
-            params["page"] = next_page_token
-        if self.replication_key:
-            params["sort"] = "asc"
-            params["order_by"] = self.replication_key
+        params["limit"] = 100 # Default: 50, Max: 100
+        if self.name == "PostAnalyticsStream":
+
+            fields, metrics = self.extract_fields_and_metrics()
+            params["fields"] = ",".join(fields)
+            params["metrics"] = ",".join(metrics)
+
+            filters = [ 
+                f"customer_profile_id.eq({customer_profile_id})",
+                "created_time.in(2024-09-01..2024-04-19)"
+            ]
+            params["filters"] = ",".join(filters)
+            params["sort"] = "created_time:asc"
+        
         return params
 
     def prepare_request_payload(

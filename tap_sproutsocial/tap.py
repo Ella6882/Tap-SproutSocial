@@ -5,48 +5,45 @@ from __future__ import annotations
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
 
-# TODO: Import your custom stream types here:
 from tap_sproutsocial import streams
-
 
 class TapSproutSocial(Tap):
     """SproutSocial tap class."""
 
     name = "tap-sproutsocial"
 
-    # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
         th.Property(
-            "auth_token",
+            "token_name",
             th.StringType,
             required=True,
             secret=True,  # Flag config as protected.
             description="The token to authenticate against the API service",
         ),
         th.Property(
-            "project_ids",
-            th.ArrayType(th.StringType),
+            "version",
+            th.StringType,
             required=True,
-            description="Project IDs to replicate",
+            description="Version ID",
+        ),
+        th.Property(
+            "customer_id",
+            th.StringType,
+            required=True,
+            secret=True,
+            description="Customer ID",
+        ),
+        th.Property(
+            "customer_profile_id",
+            th.StringType,
+            required=True,
+            secret=True,
+            description="List of customer profile IDs you have access to.",
         ),
         th.Property(
             "start_date",
             th.DateTimeType,
             description="The earliest record date to sync",
-        ),
-        th.Property(
-            "api_url",
-            th.StringType,
-            default="https://api.mysample.com",
-            description="The url for the API service",
-        ),
-        th.Property(
-            "user_agent",
-            th.StringType,
-            description=(
-                "A custom User-Agent header to send with each request. Default is "
-                "'<tap_name>/<tap_version>'"
-            ),
         ),
     ).to_dict()
 
@@ -57,8 +54,7 @@ class TapSproutSocial(Tap):
             A list of discovered streams.
         """
         return [
-            streams.GroupsStream(self),
-            streams.UsersStream(self),
+            streams.PostAnalyticsStreamStream(self)
         ]
 
 
