@@ -20,9 +20,7 @@ class PostAnalyticsStream(SproutSocialStream):
     """Define custom stream."""
     name = "post_analytics"
     path = "/analytics/posts"
-    primary_keys: t.ClassVar[list[str]] = ["guid"]
-    replication_key = "modified" # to create one
+    primary_keys = ["guid"]
+    # replication_key = None
     schema_filepath = SCHEMAS_DIR / "post_analytics.json"  # noqa: ERA001
-
-# support some kind of replication key as neither has a updated_at, could use the report_date
-# support pagination, reporting_period(filters): maximum of 1 year per request
+    rest_method = "POST"

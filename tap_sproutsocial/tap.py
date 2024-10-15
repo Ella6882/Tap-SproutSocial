@@ -23,7 +23,6 @@ class TapSproutSocial(Tap):
         th.Property(
             "version",
             th.StringType,
-            required=True,
             description="Version ID",
         ),
         th.Property(
@@ -41,6 +40,13 @@ class TapSproutSocial(Tap):
             description="List of customer profile IDs you have access to.",
         ),
         th.Property(
+            "company_name",
+            th.StringType,
+            required=True,
+            secret=True,
+            description="Company Name",
+        ),
+        th.Property(
             "start_date",
             th.DateTimeType,
             description="The earliest record date to sync",
@@ -54,7 +60,7 @@ class TapSproutSocial(Tap):
             A list of discovered streams.
         """
         return [
-            streams.PostAnalyticsStreamStream(self)
+            streams.PostAnalyticsStream(self)
         ]
 
 

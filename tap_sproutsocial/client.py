@@ -9,6 +9,9 @@ from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator  # noqa: TCH002
 from singer_sdk.streams import RESTStream
+from datetime import datetime
+
+import json
 
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
@@ -21,14 +24,27 @@ if TYPE_CHECKING:
 
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 
+class PagePaginator(BaseAPIPaginator):
+    def get_next(self, response):
+        # Extract current page and total pages from the response
+        current_page = response.json()["paging"]["current_page"]
+        total_pages = response.json()["paging"]["total_pages"]
+
+        # Check if there is a next page
+        if current_page < total_pages:
+            # Increment the page number to move to the next page
+            return {"page": current_page + 1}
+        else:
+            # No more pages
+            return None
+
 class SproutSocialStream(RESTStream):
     """SproutSocial stream class."""
 
-    # Update this value if necessary or override `parse_response`.
-    records_jsonpath = "$[*]"
+    records_jsonpath = "$.data.[*]"
 
     # Update this value if necessary or override `get_new_paginator`.
-    next_page_token_jsonpath = "$.next_page"  # noqa: S105
+    # next_page_token_jsonpath = "$.next_page"  # noqa: S105
 
     fields = None  # Post Analytics Stream will use this
 
@@ -73,18 +89,19 @@ class SproutSocialStream(RESTStream):
         Returns:
             A pagination helper instance.
         """
-        return super().get_new_paginator()
+        # Initialize the paginator with the first page as the start value
+        return PagePaginator(start_value={"page": 1})
 
     def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
         """Extract fields from properties and metrics from post_analytics.json."""
         config_file = SCHEMAS_DIR / "post_analytics.json"
         with config_file.open() as f:
             config_data = json.load(f)
-    
-        # Extract fields from properties, excluding 'metrics'
-        fields = [key for key in config_data.get("properties", {}).keys() if key != "metrics"]
-        # Extract metrics from properties.metrics.properties
-        metrics = list(config_data.get("properties", {}).get("metrics", {}).get("properties", {}).keys())
+
+            data_properties = config_data.get("properties", {}).get("data", {}).get("items", {}).get("properties", {})
+            fields = [key for key in data_properties.keys() if key != "metrics"]
+            metrics = list(data_properties.get("metrics", {}).get("properties", {}).keys())
+
         return fields, metrics
 
     def get_url_params(
@@ -99,22 +116,7 @@ class SproutSocialStream(RESTStream):
         Returns:
             A dictionary of URL query parameters.
         """
-        customer_profile_id = self.config.get("customer_profile_id", "")
         params: dict = {}
-        params["limit"] = 100 # Default: 50, Max: 100
-        if self.name == "PostAnalyticsStream":
-
-            fields, metrics = self.extract_fields_and_metrics()
-            params["fields"] = ",".join(fields)
-            params["metrics"] = ",".join(metrics)
-
-            filters = [ 
-                f"customer_profile_id.eq({customer_profile_id})",
-                "created_time.in(2024-09-01..2024-04-19)"
-            ]
-            params["filters"] = ",".join(filters)
-            params["sort"] = "created_time:asc"
-        
         return params
 
     def prepare_request_payload(
@@ -133,8 +135,31 @@ class SproutSocialStream(RESTStream):
         Returns:
             A dictionary with the JSON body for a POST requests.
         """
-        # TODO: Delete this method if no payload is required. (Most REST APIs.)
-        return None
+        customer_profile_id = self.config.get("customer_profile_id", None)
+        start_date_str = self.config.get("start_date", "")
+        start_date = f"{start_date_str}T00:00:00"
+        end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
+        payload: dict = {}
+        payload["limit"] = 100 # Default: 50, Max: 100
+        payload["page"] = 1  # Default page number
+        if self.name == "post_analytics":
+            fields, metrics = self.extract_fields_and_metrics()
+            payload["fields"] = fields
+            payload["metrics"] = metrics
+
+            filters = [
+                f"customer_profile_id.eq({customer_profile_id})", 
+                f"created_time.in({start_date}..{end_date})"
+            ]
+
+            payload["sort"] = ["created_time:asc"]
+            payload["filters"] = filters
+
+            if next_page_token:
+                payload.update(next_page_token)
+        return payload
+
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result records.
@@ -145,7 +170,6 @@ class SproutSocialStream(RESTStream):
         Yields:
             Each record from the source.
         """
-        # TODO: Parse response body and return a set of records.
         yield from extract_jsonpath(self.records_jsonpath, input=response.json())
 
     def post_process(
@@ -162,5 +186,16 @@ class SproutSocialStream(RESTStream):
         Returns:
             The updated record dictionary, or ``None`` to skip the record.
         """
-        # TODO: Delete this method if not needed.
+        company_name=self.config.get("company_name", None)
+        text = row.get('text')
+
+        if text is not None:
+            # Replace words starting with '@' with '[Obfuscated]' unless it's '@company_name'
+            obfuscated_text = ' '.join(
+                '[Obfuscated]' if word.startswith('@') and word != f"@{company_name}" else word
+                for word in text.split()
+            )
+            row['text'] = obfuscated_text
+        else:
+            self.logger.info(f"Key 'text' not found in row:", row)
         return row
