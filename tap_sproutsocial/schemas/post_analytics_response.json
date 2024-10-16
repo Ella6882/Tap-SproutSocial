@@ -14,7 +14,7 @@
       "format": "date-time"
     },
     "customer_profile_id": {
-      "type": ["integer", "null"]
+      "type": ["string", "null"]
     },
     "guid": {
       "type": ["string", "null"]
