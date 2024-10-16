@@ -9,6 +9,10 @@
       "type": ["string", "null"],
       "format": "date-time"
     },
+    "start_time": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
     "customer_profile_id": {
       "type": ["integer", "null"]
     },
@@ -36,10 +40,19 @@
     "title": {
       "type": ["string", "null"]
     },
+    "sent": {
+      "type": ["boolean"]
+    },
     "clickthrough_link": {
       "type": "object",
       "properties": {
         "long": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        },
+        "short": {
           "type": ["string", "null"]
         }
       }

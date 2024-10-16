@@ -49,6 +49,10 @@ class PostAnalyticsStream(SproutSocialStream):
             pattern = r'@(?!{})[^\s]+'.format(re.escape(company_name))
             obfuscated_text = re.sub(pattern, '[Obfuscated]', text)
             row['text'] = obfuscated_text
+
+            start_date_str = self.config.get("start_date", "")
+            row['start_time'] = f"{start_date_str}T00:00:00"
+            
         else:
             self.logger.info(f"Key 'text' not found in row:", row)
         return row
