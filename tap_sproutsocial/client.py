@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Iterable
 
 from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator  # noqa: TCH002
 from singer_sdk.streams import RESTStream
-from datetime import datetime
-
-import json
+import singer_sdk.typing as th
 
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
@@ -21,8 +21,6 @@ else:
 if TYPE_CHECKING:
     import requests
     from singer_sdk.helpers.types import Context
-
-SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 
 class PagePaginator(BaseAPIPaginator):
     def get_next(self, response):
@@ -94,7 +92,9 @@ class SproutSocialStream(RESTStream):
 
     def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
         """Extract fields from properties and metrics from post_analytics.json."""
-        config_file = SCHEMAS_DIR / "post_analytics.json"
+        SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
+        config_file = SCHEMAS_DIR / "post_analytics_request.json"
+
         with config_file.open() as f:
             config_data = json.load(f)
 
@@ -160,7 +160,6 @@ class SproutSocialStream(RESTStream):
                 payload.update(next_page_token)
         return payload
 
-
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result records.
 
@@ -171,31 +170,3 @@ class SproutSocialStream(RESTStream):
             Each record from the source.
         """
         yield from extract_jsonpath(self.records_jsonpath, input=response.json())
-
-    def post_process(
-        self,
-        row: dict,
-        context: Context | None = None,  # noqa: ARG002
-    ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
-
-        Args:
-            row: An individual record from the stream.
-            context: The stream context.
-
-        Returns:
-            The updated record dictionary, or ``None`` to skip the record.
-        """
-        company_name=self.config.get("company_name", None)
-        text = row.get('text')
-
-        if text is not None:
-            # Replace words starting with '@' with '[Obfuscated]' unless it's '@company_name'
-            obfuscated_text = ' '.join(
-                '[Obfuscated]' if word.startswith('@') and word != f"@{company_name}" else word
-                for word in text.split()
-            )
-            row['text'] = obfuscated_text
-        else:
-            self.logger.info(f"Key 'text' not found in row:", row)
-        return row
