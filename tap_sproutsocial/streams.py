@@ -7,6 +7,7 @@ import re
 import typing as t
 import json
 import os
+from datetime import datetime
 
 from singer_sdk import typing as th  # JSON Schema typing helpers
 
@@ -19,14 +20,78 @@ else:
 
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 
+class CustomerTagsStream(SproutSocialStream):
+    """Define Customer Tags stream."""
+    name = "customer_tags"
+    path = "/metadata/customer/tags"
+    primary_keys = ["tag_id"]
+    # replication_key = None
+    rest_method = "GET"
+    schema_filepath = SCHEMAS_DIR / "customer_tags.json"
+
 class PostAnalyticsStream(SproutSocialStream):
-    """Define custom stream."""
+    """Define Post Analytics stream."""
     name = "post_analytics"
     path = "/analytics/posts"
     primary_keys = ["guid"]
     # replication_key = None
     rest_method = "POST"
     schema_filepath = SCHEMAS_DIR / "post_analytics_response.json"
+
+    def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
+        """Extract fields from properties and metrics from post_analytics.json."""
+        SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
+        config_file = SCHEMAS_DIR / "post_analytics_request.json"
+
+        with config_file.open() as f:
+            config_data = json.load(f)
+
+            data_properties = config_data.get("properties", {}).get("data", {}).get("items", {}).get("properties", {})
+            fields = [key for key in data_properties.keys() if key != "metrics"]
+            metrics = list(data_properties.get("metrics", {}).get("properties", {}).keys())
+
+        return fields, metrics
+
+    def prepare_request_payload(
+        self,
+        context: Context | None,  # noqa: ARG002
+        next_page_token: Any | None,  # noqa: ARG002, ANN401
+    ) -> dict | None:
+        """Prepare the data payload for the REST API request.
+
+        By default, no payload will be sent (return None).
+
+        Args:
+            context: The stream context.
+            next_page_token: The next page index or value.
+
+        Returns:
+            A dictionary with the JSON body for a POST requests.
+        """
+        customer_profile_id = self.config.get("customer_profile_id", None)
+        start_date_str = self.config.get("start_date", "")
+        start_date = f"{start_date_str}T00:00:00"
+        end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
+        payload: dict = {}
+        payload["limit"] = 100 # Default: 50, Max: 100
+        payload["page"] = 1  # Default page number
+        if self.name == "post_analytics":
+            fields, metrics = self.extract_fields_and_metrics()
+            payload["fields"] = fields
+            payload["metrics"] = metrics
+
+            filters = [
+                f"customer_profile_id.eq({customer_profile_id})", 
+                f"created_time.in({start_date}..{end_date})"
+            ]
+
+            payload["sort"] = ["created_time:asc"]
+            payload["filters"] = filters
+
+            if next_page_token:
+                payload.update(next_page_token)
+        return payload
 
     def post_process(
         self,
@@ -52,9 +117,7 @@ class PostAnalyticsStream(SproutSocialStream):
 
             start_date_str = self.config.get("start_date", "")
             row['start_time'] = f"{start_date_str}T00:00:00"
-            
-        else:
-            self.logger.info(f"Key 'text' not found in row:", row)
+
         return row
 
     def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:

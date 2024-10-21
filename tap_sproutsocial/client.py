@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Iterable
 
 from singer_sdk.authenticators import BearerTokenAuthenticator
@@ -88,21 +87,10 @@ class SproutSocialStream(RESTStream):
             A pagination helper instance.
         """
         # Initialize the paginator with the first page as the start value
-        return PagePaginator(start_value={"page": 1})
-
-    def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
-        """Extract fields from properties and metrics from post_analytics.json."""
-        SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
-        config_file = SCHEMAS_DIR / "post_analytics_request.json"
-
-        with config_file.open() as f:
-            config_data = json.load(f)
-
-            data_properties = config_data.get("properties", {}).get("data", {}).get("items", {}).get("properties", {})
-            fields = [key for key in data_properties.keys() if key != "metrics"]
-            metrics = list(data_properties.get("metrics", {}).get("properties", {}).keys())
-
-        return fields, metrics
+        if self.name == "post_analytics":
+            return PagePaginator(start_value={"page": 1})
+        else:
+           return super().get_new_paginator()
 
     def get_url_params(
         self, context: Optional[dict], next_page_token: Optional[Any] = None
@@ -125,40 +113,15 @@ class SproutSocialStream(RESTStream):
         next_page_token: Any | None,  # noqa: ARG002, ANN401
     ) -> dict | None:
         """Prepare the data payload for the REST API request.
-
         By default, no payload will be sent (return None).
-
         Args:
             context: The stream context.
             next_page_token: The next page index or value.
-
         Returns:
             A dictionary with the JSON body for a POST requests.
         """
-        customer_profile_id = self.config.get("customer_profile_id", None)
-        start_date_str = self.config.get("start_date", "")
-        start_date = f"{start_date_str}T00:00:00"
-        end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-
-        payload: dict = {}
-        payload["limit"] = 100 # Default: 50, Max: 100
-        payload["page"] = 1  # Default page number
-        if self.name == "post_analytics":
-            fields, metrics = self.extract_fields_and_metrics()
-            payload["fields"] = fields
-            payload["metrics"] = metrics
-
-            filters = [
-                f"customer_profile_id.eq({customer_profile_id})", 
-                f"created_time.in({start_date}..{end_date})"
-            ]
-
-            payload["sort"] = ["created_time:asc"]
-            payload["filters"] = filters
-
-            if next_page_token:
-                payload.update(next_page_token)
-        return payload
+        # TODO: Delete this method if no payload is required. (Most REST APIs.)
+        return None
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result records.

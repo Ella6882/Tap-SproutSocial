@@ -40,6 +40,9 @@
     "title": {
       "type": ["string", "null"]
     },
+    "hashtags": {
+      "type": ["string", "null"]
+    },
     "sent": {
       "type": ["boolean"]
     },

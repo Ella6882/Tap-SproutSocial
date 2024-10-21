@@ -60,7 +60,8 @@ class TapSproutSocial(Tap):
             A list of discovered streams.
         """
         return [
-            streams.PostAnalyticsStream(self)
+            streams.PostAnalyticsStream(self),
+            streams.CustomerTagsStream(self),
         ]
 
 
