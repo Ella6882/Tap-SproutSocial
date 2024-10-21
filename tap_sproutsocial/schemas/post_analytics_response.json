@@ -41,7 +41,10 @@
       "type": ["string", "null"]
     },
     "hashtags": {
-      "type": ["string", "null"]
+      "type": "array",
+      "items": {
+        "type": ["string", "null"]
+      }
     },
     "sent": {
       "type": ["boolean"]
