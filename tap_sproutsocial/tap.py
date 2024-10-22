@@ -33,16 +33,8 @@ class TapSproutSocial(Tap):
             description="Customer ID",
         ),
         th.Property(
-            "customer_profile_id",
-            th.StringType,
-            required=True,
-            secret=True,
-            description="List of customer profile IDs you have access to.",
-        ),
-        th.Property(
             "company_name",
             th.StringType,
-            required=True,
             secret=True,
             description="Company Name",
         ),
@@ -62,6 +54,7 @@ class TapSproutSocial(Tap):
         return [
             streams.PostAnalyticsStream(self),
             streams.CustomerTagsStream(self),
+            streams.CustomerProfilesStream(self),
         ]
 
 
