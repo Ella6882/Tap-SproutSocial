@@ -20,6 +20,29 @@ else:
 
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 
+class CustomerProfilesStream(SproutSocialStream):
+    """Define Conversations List stream
+
+    This stream is used to call the /metadata/customer endpoint which returns a list
+    of customer profile ids.
+
+    This stream is used as a parent stream for PostAnalyticsStream.
+    """
+    name = "customer_profiles"
+    path = "/metadata/customer"
+    primary_keys = str(["customer_profile_id"])
+    schema_filepath = SCHEMAS_DIR / "customer_profiles.json"
+
+    def get_child_context(self, record: dict, context: dict | None) -> str:
+        """Returns the customer profile IDs for the children streams.
+
+        The metadata/customer endpoint contains the customer profile id associated 
+        with the account and is required for other endpoints including the PostAnalyticsStream.
+    
+        The returned string is the customer profile ID.
+        """
+        return {"customer_profile_id_list": str(record["customer_profile_id"])}
+
 class CustomerTagsStream(SproutSocialStream):
     """Define Customer Tags stream."""
     name = "customer_tags"
@@ -35,6 +58,8 @@ class PostAnalyticsStream(SproutSocialStream):
     primary_keys = ["guid"]
     rest_method = "POST"
     schema_filepath = SCHEMAS_DIR / "post_analytics_response.json"
+    ignore_parent_replication_keys = True
+    parent_stream_type = CustomerProfilesStream
 
     def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
         """Extract fields from properties and metrics from post_analytics.json."""
@@ -66,7 +91,6 @@ class PostAnalyticsStream(SproutSocialStream):
         Returns:
             A dictionary with the JSON body for a POST requests.
         """
-        customer_profile_id = self.config.get("customer_profile_id", None)
         start_date_str = self.config.get("start_date", "")
         start_date = f"{start_date_str}T00:00:00"
         end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
@@ -74,13 +98,16 @@ class PostAnalyticsStream(SproutSocialStream):
         payload: dict = {}
         payload["limit"] = 100 # Default: 50, Max: 100
         payload["page"] = 1  # Default page number
+
         if self.name == "post_analytics":
             fields, metrics = self.extract_fields_and_metrics()
             payload["fields"] = fields
             payload["metrics"] = metrics
 
+            customer_profile_id_list = context.pop('customer_profile_id_list')
+            
             filters = [
-                f"customer_profile_id.eq({customer_profile_id})", 
+                f"customer_profile_id.eq({customer_profile_id_list})", 
                 f"created_time.in({start_date}..{end_date})",
             ]
 

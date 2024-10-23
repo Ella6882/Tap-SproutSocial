@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "customer_profile_id": {
+        "type": ["integer", "null"]
+      },
+      "network_type": {
+        "type": ["string", "null"]
+      },
+      "name": {
+        "type": ["string", "null"]
+      },
+      "native_name": {
+        "type": ["string", "null"]
+      },
+      "native_id": {
+        "type": ["integer", "null"]
+      },
+      "groups": {
+        "type": "array",
+        "items": {
+          "type": ["integer", "null"]
+        }
+      }
+    }
+  }
