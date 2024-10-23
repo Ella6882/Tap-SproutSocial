@@ -58,7 +58,7 @@ class SproutSocialStream(RESTStream):
     def url_base(self) -> str:
         """Return the API URL root. Version is set to v1 as default.
         """
-        version=self.config.get("version", "v1")
+        version=self.config.get("version")
         customer_id=self.config.get("customer_id", None)
         return f"https://api.sproutsocial.com/{version}/{customer_id}"
 

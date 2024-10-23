@@ -98,7 +98,8 @@ class PostAnalyticsStream(SproutSocialStream):
         row: dict,
         context: Context | None = None,  # noqa: ARG002
     ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
+        """Modifies an individual record from a data stream 
+            by obfuscating certain parts of the text, as required.
 
         Args:
             row: An individual record from the stream.
