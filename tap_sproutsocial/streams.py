@@ -72,7 +72,7 @@ class PostAnalyticsStream(SproutSocialStream):
         end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
         payload: dict = {}
-        payload["limit"] = 5 # Default: 50, Max: 100
+        payload["limit"] = 100 # Default: 50, Max: 100
         payload["page"] = 1  # Default page number
         if self.name == "post_analytics":
             fields, metrics = self.extract_fields_and_metrics()
