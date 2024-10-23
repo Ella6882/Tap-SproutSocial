@@ -22,7 +22,14 @@ if TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 class PagePaginator(BaseAPIPaginator):
-    """Process the sorted response data and extract 
+    """
+    Note the maximum response size is capped at 10,000 results. 
+    To request data for responses with more than 10,000 results, 
+    we use a cursor-based pagination approach. 
+
+    Read more here: https://api.sproutsocial.com/docs/#post-analytics-endpoint.
+
+    Process the sorted response data and extract 
     the last 'guid' value from the response.
 
     This 'guid' will be used as the cursor for the next request.
@@ -45,10 +52,6 @@ class SproutSocialStream(RESTStream):
     """SproutSocial stream class."""
 
     records_jsonpath = "$.data.[*]"
-
-    # Update this value if necessary or override `get_new_paginator`.
-    # next_page_token_jsonpath = "$.next_page"  # noqa: S105
-
     fields = None  # Post Analytics Stream will use this
 
     @property

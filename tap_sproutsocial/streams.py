@@ -110,7 +110,7 @@ class PostAnalyticsStream(SproutSocialStream):
         company_name=self.config.get("company_name", None)
         text = row.get('text')
 
-        if text is not None:
+        if text is not None and company_name is not None:
             pattern = r'@(?!{})[^\s]+'.format(re.escape(company_name))
             obfuscated_text = re.sub(pattern, '[Obfuscated]', text)
             row['text'] = obfuscated_text

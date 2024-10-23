@@ -42,7 +42,6 @@ class TapSproutSocial(Tap):
         th.Property(
             "company_name",
             th.StringType,
-            required=True,
             secret=True,
             description="Company Name",
         ),
