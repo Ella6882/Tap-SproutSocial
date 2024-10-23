@@ -72,7 +72,7 @@ class PostAnalyticsStream(SproutSocialStream):
         end_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
         payload: dict = {}
-        payload["limit"] = 100 # Default: 50, Max: 100
+        payload["limit"] = 5 # Default: 50, Max: 100
         payload["page"] = 1  # Default page number
         if self.name == "post_analytics":
             fields, metrics = self.extract_fields_and_metrics()
@@ -88,7 +88,7 @@ class PostAnalyticsStream(SproutSocialStream):
             payload["filters"] = filters
 
             if next_page_token is not None:
-                print("Next token", next_page_token)
+                self.logger.info(f"Next token: {next_page_token}")
                 filters.append(f"guid.gt({next_page_token})")
 
         return payload
