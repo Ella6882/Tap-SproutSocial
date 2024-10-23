@@ -17,9 +17,6 @@
           "customer_profile_id": {
             "type": ["string", "null"]
           },
-          "customer_profile_id_list": {
-            "type": ["string", "null"]
-          },
           "guid": {
             "type": ["string", "null"]
           },

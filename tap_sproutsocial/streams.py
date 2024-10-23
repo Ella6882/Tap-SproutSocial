@@ -42,7 +42,16 @@ class CustomerProfilesStream(SproutSocialStream):
     
         The returned string is a comma-separated list of customer profile IDs.
         """
-        return {"customer_profile_id_list": str(record["customer_profile_id"])}
+        if context is None:
+            context = {"customer_profile_id_list": ""}
+        customer_profile_id = str(record["customer_profile_id"])
+
+        # If there are already customer profile IDs in context, append the new one with a comma
+        if context["customer_profile_id_list"]:
+            context["customer_profile_id_list"] += f", {customer_profile_id}"
+        else:
+            context["customer_profile_id_list"] = customer_profile_id
+        return context
 
 class CustomerTagsStream(SproutSocialStream):
     """Define Customer Tags stream."""
@@ -105,7 +114,8 @@ class PostAnalyticsStream(SproutSocialStream):
             payload["fields"] = fields
             payload["metrics"] = metrics
 
-            # customer_profile_id_list = context.pop('customer_profile_id_list', '')
+            # customer_profile_id_list = str(context["customer_profile_id_list"])
+            customer_profile_id_list = context.pop('customer_profile_id_list')
             
             filters = [
                 f"customer_profile_id.eq({customer_profile_id_list})", 
