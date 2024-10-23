@@ -108,7 +108,7 @@ class PostAnalyticsStream(SproutSocialStream):
             # customer_profile_id_list = context.pop('customer_profile_id_list', '')
             
             filters = [
-                f"customer_profile_id.eq({customer_profile_id})", 
+                f"customer_profile_id.eq({customer_profile_id_list})", 
                 f"created_time.in({start_date}..{end_date})",
             ]
 
