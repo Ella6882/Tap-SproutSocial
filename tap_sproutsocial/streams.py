@@ -57,7 +57,6 @@ class PostAnalyticsStream(SproutSocialStream):
     name = "post_analytics"
     path = "/analytics/posts"
     primary_keys = ["guid"]
-    parent_stream_type = CustomerProfilesStream
     rest_method = "POST"
     schema_filepath = SCHEMAS_DIR / "post_analytics_response.json"
     ignore_parent_replication_keys = True
@@ -107,15 +106,17 @@ class PostAnalyticsStream(SproutSocialStream):
 
             customer_profile_id_list = context.pop('customer_profile_id_list', '')
             filters = [
-                f"customer_profile_id.eq({customer_profile_id_list})",
-                f"created_time.in({start_date}..{end_date})"
+                f"customer_profile_id.eq({customer_profile_id})", 
+                f"created_time.in({start_date}..{end_date})",
             ]
 
-            payload["sort"] = ["created_time:asc"]
+            payload["sort"] = ["guid:asc"]
             payload["filters"] = filters
 
-            if next_page_token:
-                payload.update(next_page_token)
+            if next_page_token is not None:
+                self.logger.info(f"Next token: {next_page_token}")
+                filters.append(f"guid.gt({next_page_token})")
+
         return payload
 
     def post_process(
@@ -123,7 +124,8 @@ class PostAnalyticsStream(SproutSocialStream):
         row: dict,
         context: Context | None = None,  # noqa: ARG002
     ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
+        """Modifies an individual record from a data stream 
+            by obfuscating certain parts of the text, as required.
 
         Args:
             row: An individual record from the stream.

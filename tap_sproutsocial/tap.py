@@ -23,6 +23,7 @@ class TapSproutSocial(Tap):
         th.Property(
             "version",
             th.StringType,
+            default="v1",
             description="Version ID",
         ),
         th.Property(

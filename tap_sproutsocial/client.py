@@ -22,34 +22,43 @@ if TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 class PagePaginator(BaseAPIPaginator):
-    def get_next(self, response):
-        # Extract current page and total pages from the response
-        current_page = response.json()["paging"]["current_page"]
-        total_pages = response.json()["paging"]["total_pages"]
+    """
+    Note the maximum response size is capped at 10,000 results. 
+    To request data for responses with more than 10,000 results, 
+    we use a cursor-based pagination approach. 
 
-        # Check if there is a next page
-        if current_page < total_pages:
-            # Increment the page number to move to the next page
-            return {"page": current_page + 1}
-        else:
-            # No more pages
+    Read more here: https://api.sproutsocial.com/docs/#post-analytics-endpoint.
+
+    Process the sorted response data and extract 
+    the last 'guid' value from the response.
+
+    This 'guid' will be used as the cursor for the next request.
+    """
+    def __init__(self, start_value=None):
+        # Set a default start_value for the first request
+        super().__init__(start_value=start_value)
+
+    def get_next(self, response) -> str:
+        """Get the 'guid' from the last record in the list."""
+        records = response.json()
+        if not records:
             return None
+
+        cursor = records['data'][-1]['guid']
+        return cursor if cursor else None
+
 
 class SproutSocialStream(RESTStream):
     """SproutSocial stream class."""
 
     records_jsonpath = "$.data.[*]"
-
-    # Update this value if necessary or override `get_new_paginator`.
-    # next_page_token_jsonpath = "$.next_page"  # noqa: S105
-
     fields = None  # Post Analytics Stream will use this
 
     @property
     def url_base(self) -> str:
         """Return the API URL root. Version is set to v1 as default.
         """
-        version=self.config.get("version", "v1")
+        version=self.config.get("version")
         customer_id=self.config.get("customer_id", None)
         return f"https://api.sproutsocial.com/{version}/{customer_id}"
 
@@ -76,19 +85,14 @@ class SproutSocialStream(RESTStream):
     def get_new_paginator(self) -> BaseAPIPaginator:
         """Create a new pagination helper instance.
 
-        If the source API can make use of the `next_page_token_jsonpath`
-        attribute, or it contains a `X-Next-Page` header in the response
-        then you can remove this method.
-
         If you need custom pagination that uses page numbers, "next" links, or
         other approaches, please read the guide: https://sdk.meltano.com/en/v0.25.0/guides/pagination-classes.html.
 
         Returns:
             A pagination helper instance.
         """
-        # Initialize the paginator with the first page as the start value
         if self.name == "post_analytics":
-            return PagePaginator(start_value={"page": 1})
+            return PagePaginator()
         else:
            return super().get_new_paginator()
 
@@ -120,7 +124,6 @@ class SproutSocialStream(RESTStream):
         Returns:
             A dictionary with the JSON body for a POST requests.
         """
-        # TODO: Delete this method if no payload is required. (Most REST APIs.)
         return None
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
