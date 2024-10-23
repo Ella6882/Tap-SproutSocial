@@ -25,7 +25,6 @@ class CustomerTagsStream(SproutSocialStream):
     name = "customer_tags"
     path = "/metadata/customer/tags"
     primary_keys = ["tag_id"]
-    # replication_key = None
     rest_method = "GET"
     schema_filepath = SCHEMAS_DIR / "customer_tags.json"
 
@@ -34,7 +33,6 @@ class PostAnalyticsStream(SproutSocialStream):
     name = "post_analytics"
     path = "/analytics/posts"
     primary_keys = ["guid"]
-    # replication_key = None
     rest_method = "POST"
     schema_filepath = SCHEMAS_DIR / "post_analytics_response.json"
 
@@ -83,14 +81,16 @@ class PostAnalyticsStream(SproutSocialStream):
 
             filters = [
                 f"customer_profile_id.eq({customer_profile_id})", 
-                f"created_time.in({start_date}..{end_date})"
+                f"created_time.in({start_date}..{end_date})",
             ]
 
-            payload["sort"] = ["created_time:asc"]
+            payload["sort"] = ["guid:asc"]
             payload["filters"] = filters
 
-            if next_page_token:
-                payload.update(next_page_token)
+            if next_page_token is not None:
+                print("Next token", next_page_token)
+                filters.append(f"guid.gt({next_page_token})")
+
         return payload
 
     def post_process(
