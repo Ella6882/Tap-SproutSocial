@@ -34,24 +34,14 @@ class CustomerProfilesStream(SproutSocialStream):
     schema_filepath = SCHEMAS_DIR / "customer_profiles.json"
 
     def get_child_context(self, record: dict, context: dict | None) -> str:
-        """Returns a comma-separated string containing the customer profile IDs 
-        for the children streams.
+        """Returns the customer profile IDs for the children streams.
 
         The metadata/customer endpoint contains the customer profile id associated 
         with the account and is required for other endpoints including the PostAnalyticsStream.
     
-        The returned string is a comma-separated list of customer profile IDs.
+        The returned string is the customer profile ID.
         """
-        if context is None:
-            context = {"customer_profile_id_list": ""}
-        customer_profile_id = str(record["customer_profile_id"])
-
-        # If there are already customer profile IDs in context, append the new one with a comma
-        if context["customer_profile_id_list"]:
-            context["customer_profile_id_list"] += f", {customer_profile_id}"
-        else:
-            context["customer_profile_id_list"] = customer_profile_id
-        return context
+        return {"customer_profile_id_list": str(record["customer_profile_id"])}
 
 class CustomerTagsStream(SproutSocialStream):
     """Define Customer Tags stream."""
@@ -114,7 +104,6 @@ class PostAnalyticsStream(SproutSocialStream):
             payload["fields"] = fields
             payload["metrics"] = metrics
 
-            # customer_profile_id_list = str(context["customer_profile_id_list"])
             customer_profile_id_list = context.pop('customer_profile_id_list')
             
             filters = [
