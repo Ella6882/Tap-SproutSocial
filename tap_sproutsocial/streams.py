@@ -60,6 +60,7 @@ class PostAnalyticsStream(SproutSocialStream):
     rest_method = "POST"
     schema_filepath = SCHEMAS_DIR / "post_analytics_response.json"
     ignore_parent_replication_keys = True
+    parent_stream_type = CustomerProfilesStream
 
     def extract_fields_and_metrics(self) -> tuple[list[str], list[str]]:
         """Extract fields from properties and metrics from post_analytics.json."""
@@ -104,7 +105,8 @@ class PostAnalyticsStream(SproutSocialStream):
             payload["fields"] = fields
             payload["metrics"] = metrics
 
-            customer_profile_id_list = context.pop('customer_profile_id_list', '')
+            # customer_profile_id_list = context.pop('customer_profile_id_list', '')
+            
             filters = [
                 f"customer_profile_id.eq({customer_profile_id})", 
                 f"created_time.in({start_date}..{end_date})",
